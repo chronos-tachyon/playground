@@ -2,37 +2,24 @@ package main
 
 import (
 	"encoding/json"
-	"net"
+	"flag"
+	"log"
 	"net/http"
-	"os"
+	"os/exec"
+	"strings"
 )
 
-type hello struct{}
+var flagListen = flag.String("listen", ":8000", "host:port to listen on")
+var hostname string
 
 type answer struct {
 	Hostname string `json:"hostname"`
 	Message  string `json:"message"`
 }
 
+type hello struct{}
+
 func (_ *hello) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	hostname, err := os.Hostname()
-	if err != nil {
-		panic(err)
-	}
-
-	addrs, err := net.LookupHost(hostname)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, addr := range addrs {
-		names, err := net.LookupAddr(addr)
-		if err == nil {
-			hostname = names[0]
-			break
-		}
-	}
-
 	a := answer{
 		Hostname: hostname,
 		Message:  "Hello, world!",
@@ -50,7 +37,28 @@ func (_ *hello) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type healthz struct{}
+
+func (_ *healthz) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Length", "0")
+	w.WriteHeader(200)
+}
+
 func main() {
+	flag.Parse()
+
+	cmd := exec.Command("hostname", "--fqdn")
+	out, err := cmd.Output()
+	if err != nil {
+		panic(err)
+	}
+
+	hostname = strings.TrimSpace(string(out))
+
+	log.Printf("Hostname: %s", hostname)
+	log.Printf("Listening on: %s", *flagListen)
+
 	http.Handle("/", &hello{})
-	http.ListenAndServe(":8000", nil)
+	http.Handle("/healthz", &healthz{})
+	http.ListenAndServe(*flagListen, nil)
 }

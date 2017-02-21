@@ -14,7 +14,7 @@ docker_build(
     name = "hello",
     base = "@docker_ubuntu//:xenial",
     files = [":hello_server"],
-    ports = ["8000"],
-    cmd = "/hello_server",
+    ports = ["80"],
+    cmd = "/hello_server -listen=:80",
     repository = "us.gcr.io/playground-159317",
 )
